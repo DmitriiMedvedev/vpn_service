@@ -12,7 +12,7 @@ from app.bot.handlers import admin
 dp.include_router(admin.router)
 
 async def start_bot():
-    if BOT_TOKEN != "mock_token":
+    if BOT_TOKEN != "mock_token":  # nosec
         await dp.start_polling(bot)
 
 async def stop_bot():

@@ -16,14 +16,14 @@ async def check_overdrafts():
                 user.is_active = False
                 try:
                     await bot.send_message(user.tg_id, "⚠️ Ваш баланс опустился ниже -50 RUB. Доступ к VPN заблокирован. Пополните баланс для разблокировки.")
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Error sending message: {e}")
             elif user.balance < 0:
                 # Warning
                 try:
                     await bot.send_message(user.tg_id, f"Внимание! Ваш баланс отрицательный ({user.balance:.2f} RUB). Доступ будет отключен при достижении -50 RUB.")
-                except:
-                    pass
+                except Exception as e:
+                    print(f"Error sending message: {e}")
         await session.commit()
 
 def start_scheduler():

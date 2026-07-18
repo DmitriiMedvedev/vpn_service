@@ -18,7 +18,7 @@ HEADERS = {"X-Admin-API-Key": ADMIN_API_KEY}
 def get_xray_stats():
     try:
         # Run xray api command to get stats
-        result = subprocess.run(["xray", "api", "statsquery", "-server=127.0.0.1:10085"], capture_output=True, text=True)
+        result = subprocess.run(["/usr/local/bin/xray", "api", "statsquery", "-server=127.0.0.1:10085"], capture_output=True, text=True)
         if result.returncode != 0:
             print("Error getting stats:", result.stderr)
             return []
@@ -44,7 +44,7 @@ def get_xray_stats():
                     traffic_map[uuid]["uploaded_bytes"] += value
 
         # Reset stats in xray so we don't double count
-        subprocess.run(["xray", "api", "statsquery", "-server=127.0.0.1:10085", "-reset=true"], capture_output=True)
+        subprocess.run(["/usr/local/bin/xray", "api", "statsquery", "-server=127.0.0.1:10085", "-reset=true"], capture_output=True)
 
         stats_list = [{"uuid": k, "downloaded_bytes": v["downloaded_bytes"], "uploaded_bytes": v["uploaded_bytes"]} for k, v in traffic_map.items()]
         return stats_list
@@ -61,14 +61,14 @@ def report_stats(stats):
             "node_ip": NODE_IP,
             "stats": stats
         }
-        res = requests.post(f"{ADMIN_API_URL}/api/nodes/stats", json=payload, headers=HEADERS)
+        res = requests.post(f"{ADMIN_API_URL}/api/nodes/stats", json=payload, headers=HEADERS, timeout=10)
         res.raise_for_status()
     except Exception as e:
         print(f"Failed to report stats: {e}")
 
 def sync_users():
     try:
-        res = requests.get(f"{ADMIN_API_URL}/api/nodes/sync", headers=HEADERS)
+        res = requests.get(f"{ADMIN_API_URL}/api/nodes/sync", headers=HEADERS, timeout=10)
         res.raise_for_status()
         active_uuids = res.json().get("active_uuids", [])
 
@@ -92,7 +92,7 @@ def sync_users():
         # Restart Xray process (assuming managed by systemd, supervisor, or simply kill and start in our bash script)
         # In our docker setup, we can kill the xray process and let the start.sh loop restart it,
         # or handle it gracefully here.
-        subprocess.run(["pkill", "xray"]) # SIGHUP might reload config depending on version, otherwise pkill xray.
+        subprocess.run(["/usr/bin/pkill", "xray"]) # SIGHUP might reload config depending on version, otherwise pkill xray.
 
     except Exception as e:
         print(f"Failed to sync users: {e}")

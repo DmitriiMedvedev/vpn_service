@@ -35,8 +35,8 @@ async def cmd_start(message: Message):
     if len(args) > 1 and args[1].startswith("ref_"):
         try:
             invited_by = int(args[1].replace("ref_", ""))
-        except:
-            pass
+        except Exception as e:
+            print(f"Error handling ref: {e}")
 
     async with async_session_maker() as session:
         user = await get_or_create_user(message.from_user.id, message.from_user.username, session)
