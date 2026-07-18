@@ -6,7 +6,7 @@ services:
     restart: always
     environment:
       POSTGRES_USER: vpn_admin
-      POSTGRES_PASSWORD: vpn_password
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpn_password}
       POSTGRES_DB: vpn_db
     ports:
       - "5432:5432"
@@ -31,11 +31,15 @@ services:
       dockerfile: Dockerfile
     restart: always
     environment:
-      - DATABASE_URL=postgresql+asyncpg://vpn_admin:vpn_password@db:5432/vpn_db
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vpn_admin:vpn_password@db:5432/vpn_db}
       - REDIS_URL=redis://redis:6379/0
       - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_IDS=${ADMIN_IDS}
       - CRYPTO_PAY_TOKEN=${CRYPTO_PAY_TOKEN}
       - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - API_DOMAIN=http://${NODE_IP:-127.0.0.1}:8000
+      - REALITY_PUBLIC_KEY=${REALITY_PUBLIC_KEY}
+      - REALITY_SHORT_ID=${REALITY_SHORT_ID}
     ports:
       - "8000:8000"
     depends_on:
@@ -52,8 +56,14 @@ services:
     environment:
       - ADMIN_API_URL=http://admin_server:8000
       - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - API_DOMAIN=http://${NODE_IP:-127.0.0.1}:8000
+      - REALITY_PUBLIC_KEY=${REALITY_PUBLIC_KEY}
+      - REALITY_SHORT_ID=${REALITY_SHORT_ID}
       - XRAY_API_PORT=10085
-      - NODE_ID=${NODE_ID}
+      - NODE_IP=${NODE_IP:-127.0.0.1}
+      - API_DOMAIN=http://${NODE_IP:-127.0.0.1}:8000
+      - REALITY_PRIVATE_KEY=${REALITY_PRIVATE_KEY}
+      - REALITY_SHORT_ID=${REALITY_SHORT_ID}
     ports:
       - "443:443"     # Reality port
       - "80:80"       # Optional HTTP port

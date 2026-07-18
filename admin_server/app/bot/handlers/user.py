@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery, PreCheckoutQuery, LabeledPrice, ContentType
+from aiogram.types import Message, CallbackQuery, PreCheckoutQuery, LabeledPrice
+from aiogram.enums import ContentType
 from aiogram.filters import CommandStart, Command
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
