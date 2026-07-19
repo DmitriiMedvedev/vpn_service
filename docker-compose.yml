@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: vpn_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vpn_password}
+      POSTGRES_DB: vpn_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    networks:
+      - vpn_network
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - vpn_network
+
+  admin_server:
+    build:
+      context: ./admin_server
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://vpn_admin:vpn_password@db:5432/vpn_db}
+      - REDIS_URL=redis://redis:6379/0
+      - BOT_TOKEN=${BOT_TOKEN}
+      - ADMIN_IDS=${ADMIN_IDS}
+      - CRYPTO_PAY_TOKEN=${CRYPTO_PAY_TOKEN}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - API_DOMAIN=http://${NODE_IP:-127.0.0.1}:8000
+      - REALITY_PUBLIC_KEY=${REALITY_PUBLIC_KEY}
+      - REALITY_SHORT_ID=${REALITY_SHORT_ID}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - redis
+    networks:
+      - vpn_network
+
+  node_server:
+    build:
+      context: ./node_server
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      - ADMIN_API_URL=http://admin_server:8000
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - API_DOMAIN=http://${NODE_IP:-127.0.0.1}:8000
+      - REALITY_PUBLIC_KEY=${REALITY_PUBLIC_KEY}
+      - REALITY_SHORT_ID=${REALITY_SHORT_ID}
+      - XRAY_API_PORT=10085
+      - NODE_IP=${NODE_IP:-127.0.0.1}
+      - API_DOMAIN=http://${NODE_IP:-127.0.0.1}:8000
+      - REALITY_PRIVATE_KEY=${REALITY_PRIVATE_KEY}
+      - REALITY_SHORT_ID=${REALITY_SHORT_ID}
+    ports:
+      - "443:443"     # Reality port
+      - "80:80"       # Optional HTTP port
+    depends_on:
+      - admin_server
+    networks:
+      - vpn_network
+
+volumes:
+  db_data:
+  redis_data:
+
+networks:
+  vpn_network:
+    driver: bridge
