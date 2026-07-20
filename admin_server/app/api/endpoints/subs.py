@@ -11,11 +11,11 @@ from app.db.models import User, Node
 
 router = APIRouter()
 
-def generate_vless_link(uuid: str, ip: str, port: int):
+def generate_vless_link(uuid: str, ip: str, port: int, index: int = 1):
     pbk = os.getenv("REALITY_PUBLIC_KEY", "YOUR_PUBLIC_KEY")
     sid = os.getenv("REALITY_SHORT_ID", "YOUR_SHORT_ID")
     sni = "www.microsoft.com"
-    return f"vless://{uuid}@{ip}:{port}?type=tcp&security=reality&pbk={pbk}&sni={sni}&sid={sid}&fp=chrome&flow=xtls-rprx-vision#VPN-Node"
+    return f"vless://{uuid}@{ip}:{port}?type=tcp&security=reality&pbk={pbk}&sni={sni}&sid={sid}&fp=chrome&flow=xtls-rprx-vision#VPN-Node-{index}"
 
 def generate_singbox_profile(uuid: str, nodes: list, split_tunneling: bool):
     # Base Sing-box configuration
@@ -29,6 +29,18 @@ def generate_singbox_profile(uuid: str, nodes: list, split_tunneling: bool):
         "outbounds": [],
         "route": {"rules": []}
     }
+
+    # Generate node tags
+    node_tags = [f"node-{i}" for i in range(len(nodes))]
+
+    # Add a selector outbound as the very first outbound
+    if node_tags:
+        config["outbounds"].append({
+            "type": "selector",
+            "tag": "select",
+            "outbounds": node_tags,
+            "default": node_tags[0]
+        })
 
     # Add nodes as outbounds
     for i, node in enumerate(nodes):
@@ -92,6 +104,6 @@ async def get_subscription(uuid: str, request: Request, db: AsyncSession = Depen
         return json.dumps(profile, indent=2)
     else:
         # Fallback to basic vless links (which rely on the client's own routing UI)
-        links = [generate_vless_link(user.uuid, node.ip, node.port) for node in nodes]
+        links = [generate_vless_link(user.uuid, node.ip, node.port, index=i+1) for i, node in enumerate(nodes)]
         sub_data = "\n".join(links)
         return base64.b64encode(sub_data.encode('utf-8')).decode('utf-8')
