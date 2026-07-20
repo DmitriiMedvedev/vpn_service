@@ -1,3 +1,9 @@
+"""
+Telegram Bot Initialization.
+Configures Aiogram 3 Dispatcher, connects all command and event handlers (routers),
+and provides startup/shutdown hooks.
+"""
+
 from aiogram import Bot, Dispatcher
 import os
 import asyncio
@@ -18,8 +24,10 @@ dp.include_router(admin.router)
 dp.include_router(admin_nodes.router)
 
 async def start_bot():
+    """Starts Telegram Bot polling if a valid token is provided."""
     if BOT_TOKEN != "mock_token":  # nosec
         await dp.start_polling(bot)
 
 async def stop_bot():
+    """Gracefully closes the Telegram Bot session."""
     await bot.session.close()

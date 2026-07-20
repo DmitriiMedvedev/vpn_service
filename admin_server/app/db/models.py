@@ -1,3 +1,8 @@
+"""
+SQLAlchemy ORM models defining the PostgreSQL database schema.
+Includes Users, Nodes, Transactions, and PromoCodes.
+"""
+
 from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey, DateTime, BigInteger
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -6,6 +11,10 @@ import uuid
 from app.db.database import Base
 
 class User(Base):
+    """
+    Represents a Telegram user in the system.
+    Stores balance, unique UUID for VPN (Xray) authentication, and routing preferences.
+    """
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -22,6 +31,9 @@ class User(Base):
     transactions = relationship("Transaction", back_populates="user")
 
 class Node(Base):
+    """
+    Represents a VPN Node server connected to the Master.
+    """
     __tablename__ = "nodes"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -30,6 +42,9 @@ class Node(Base):
     status = Column(String, default="active") # active, inactive
 
 class Transaction(Base):
+    """
+    Records balance changes for users (deposits, traffic deductions, promo activations).
+    """
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -42,6 +57,9 @@ class Transaction(Base):
     user = relationship("User", back_populates="transactions")
 
 class PromoCode(Base):
+    """
+    Represents promotional codes that users can activate to receive a balance top-up.
+    """
     __tablename__ = "promocodes"
 
     id = Column(Integer, primary_key=True, index=True)
