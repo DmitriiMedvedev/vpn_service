@@ -43,8 +43,10 @@ async def cmd_start(message: Message):
         user = await get_or_create_user(message.from_user.id, message.from_user.username, session)
 
         if invited_by and not user.invited_by and invited_by != message.from_user.id:
-            user.invited_by = invited_by
-            await session.commit()
+            inviter = await session.scalar(select(User).where(User.tg_id == invited_by))
+            if inviter:
+                user.invited_by = inviter.id
+                await session.commit()
 
     text = "👋 Добро пожаловать в VPN сервис!\n\nИспользуйте меню ниже для управления своим аккаунтом."
     await message.answer(text, reply_markup=main_menu_kb())

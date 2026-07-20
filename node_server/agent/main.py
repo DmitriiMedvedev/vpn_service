@@ -115,11 +115,24 @@ def apply_env_configs():
 def main():
     print("Starting Node Agent...")
     apply_env_configs()
+    pending_stats = {}
+
     while True:
-        stats = get_xray_stats(reset=False)
-        success = report_stats(stats)
-        if success:
-            get_xray_stats(reset=True)
+        stats = get_xray_stats(reset=True)
+
+        for stat in stats:
+            uuid = stat["uuid"]
+            if uuid not in pending_stats:
+                pending_stats[uuid] = {"downloaded_bytes": 0, "uploaded_bytes": 0}
+            pending_stats[uuid]["downloaded_bytes"] += stat["downloaded_bytes"]
+            pending_stats[uuid]["uploaded_bytes"] += stat["uploaded_bytes"]
+
+        if pending_stats:
+            stats_to_report = [{"uuid": k, "downloaded_bytes": v["downloaded_bytes"], "uploaded_bytes": v["uploaded_bytes"]} for k, v in pending_stats.items()]
+            success = report_stats(stats_to_report)
+            if success:
+                pending_stats.clear()
+
         sync_users()
         time.sleep(600) # 10 minutes
 
