@@ -172,6 +172,8 @@ async def admin_add_balance(message: Message):
         user.balance += amount
         if user.balance >= -50:
             user.is_active = True
+        else:
+            user.is_active = False
 
         tx = Transaction(user_id=user.id, amount=amount, type="admin_add", description="Admin added balance")
         session.add(tx)
