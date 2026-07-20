@@ -1,3 +1,12 @@
+"""
+Node Agent Script.
+Runs on each VPN node to manage the local Xray-core instance.
+Responsibilities:
+1. Fetch traffic statistics from Xray via its gRPC/API and report to Master.
+2. Poll Master for active users and update the local Xray `config.json`.
+3. Restart Xray when configurations change.
+"""
+
 import time
 import requests
 import os
@@ -13,6 +22,13 @@ HEADERS = {"X-Admin-API-Key": ADMIN_API_KEY}
 current_users = set()
 
 def get_xray_stats(reset=False):
+    """
+    Calls the local Xray binary API to retrieve traffic statistics for all users.
+    Args:
+        reset (bool): If True, resets the traffic counters in Xray after reading.
+    Returns:
+        list: A list of dicts containing uuid, downloaded_bytes, and uploaded_bytes.
+    """
     try:
         cmd = ["/usr/local/bin/xray", "api", "statsquery", "-server=127.0.0.1:10085"]
         if reset:
@@ -48,6 +64,9 @@ def get_xray_stats(reset=False):
         return []
 
 def report_stats(stats):
+    """
+    Sends the aggregated traffic statistics to the Admin (Master) Server for billing.
+    """
     if not stats:
         return True
     try:
@@ -63,6 +82,10 @@ def report_stats(stats):
         return False
 
 def sync_users():
+    """
+    Fetches the list of active users from the Master server.
+    If the list has changed, updates the local Xray config.json and restarts the Xray process.
+    """
     global current_users
     try:
         res = requests.get(f"{ADMIN_API_URL}/api/nodes/sync", headers=HEADERS, timeout=10)
@@ -92,6 +115,10 @@ def sync_users():
         print(f"Failed to sync users: {e}")
 
 def apply_env_configs():
+    """
+    Injects REALITY keys from environment variables into the Xray config.json on startup.
+    This allows dynamic deployment without hardcoding secrets in files.
+    """
     try:
         with open("/app/xray/config.json", "r") as f:
             config = json.load(f)
