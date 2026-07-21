@@ -13,6 +13,22 @@ echo "📦 Установка зависимостей..."
 sudo apt-get update
 sudo apt-get install -y curl git openssl unzip
 
+# Настройка UFW (Firewall)
+echo "🛡️ Настройка брандмауэра (UFW)..."
+sudo apt-get install -y ufw
+sudo ufw --force reset
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow 22/tcp
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+if [ "$INSTALL_TYPE" = "1" ] || [ "$INSTALL_TYPE" = "2" ]; then
+    # Мастер-серверу нужен открытый порт 8000 для API
+    sudo ufw allow 8000/tcp
+fi
+sudo ufw --force enable
+
 # Установка Docker и Docker Compose (если не установлены)
 if ! command -v docker &> /dev/null; then
     echo "🐳 Установка Docker..."
@@ -25,9 +41,18 @@ if [ "$INSTALL_TYPE" = "1" ] || [ "$INSTALL_TYPE" = "2" ]; then
     echo "🔑 Настройка конфигурации Мастер-сервера..."
     ADMIN_API_KEY=$(openssl rand -hex 32)
     POSTGRES_PASSWORD=$(openssl rand -hex 16)
+    REDIS_PASSWORD=$(openssl rand -hex 16)
 
     # Generate valid x25519 keys for Reality
-    curl -sL https://github.com/XTLS/Xray-core/releases/latest/download/Xray-linux-64.zip -o xray.zip
+    XRAY_VERSION="v1.8.24"
+    XRAY_SHA256="47a860787e823474a358d6bca536547df6dd08b69c6de482ea92a9e7e8f8969c"
+    curl -sL https://github.com/XTLS/Xray-core/releases/download/${XRAY_VERSION}/Xray-linux-64.zip -o xray.zip
+
+    if ! echo "$XRAY_SHA256  xray.zip" | sha256sum -c -; then
+        echo "❌ Ошибка: Несовпадение контрольной суммы Xray-core!"
+        exit 1
+    fi
+
     unzip -q xray.zip xray -d /tmp/
     chmod +x /tmp/xray
     REALITY_KEYS=$(/tmp/xray x25519)
@@ -46,21 +71,27 @@ if [ "$INSTALL_TYPE" = "1" ] || [ "$INSTALL_TYPE" = "2" ]; then
         CRYPTO_PAY_TOKEN="mock_token"
     fi
 
-    # Создаем .env файл
-    cat <<ENV_EOF > .env
+    if [ -f .env ]; then
+        echo "⚠️ Файл .env уже существует. Использование текущих ключей, чтобы не прервать работу существующих нод."
+        source .env
+    else
+        # Создаем .env файл
+        cat <<ENV_EOF > .env
 BOT_TOKEN=$BOT_TOKEN
 ADMIN_IDS=$ADMIN_IDS
 CRYPTO_PAY_TOKEN=$CRYPTO_PAY_TOKEN
 ADMIN_API_KEY=$ADMIN_API_KEY
 NODE_IP=$NODE_IP
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+REDIS_PASSWORD=$REDIS_PASSWORD
 DATABASE_URL=postgresql+asyncpg://vpn_admin:$POSTGRES_PASSWORD@db:5432/vpn_db
 REALITY_PRIVATE_KEY=$REALITY_PRIVATE_KEY
 REALITY_PUBLIC_KEY=$REALITY_PUBLIC_KEY
 REALITY_SHORT_ID=$REALITY_SHORT_ID
 ENV_EOF
-
-    echo "✅ Конфигурация сохранена в .env"
+        chmod 600 .env
+        echo "✅ Конфигурация сохранена в .env"
+    fi
 
     if [ "$INSTALL_TYPE" = "1" ]; then
         echo "⚙️ Настройка Docker Compose для Мастер-сервера + Ноды..."
@@ -75,8 +106,6 @@ services:
       POSTGRES_USER: vpn_admin
       POSTGRES_PASSWORD: \${POSTGRES_PASSWORD:-vpn_password}
       POSTGRES_DB: vpn_db
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
@@ -84,9 +113,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: redis-server --requirepass \${REDIS_PASSWORD:-vpn_redis_pass}
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -99,7 +127,7 @@ services:
     restart: always
     environment:
       - DATABASE_URL=\${DATABASE_URL:-postgresql+asyncpg://vpn_admin:vpn_password@db:5432/vpn_db}
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:\${REDIS_PASSWORD:-vpn_redis_pass}@redis:6379/0
       - BOT_TOKEN=\${BOT_TOKEN}
       - ADMIN_IDS=\${ADMIN_IDS}
       - CRYPTO_PAY_TOKEN=\${CRYPTO_PAY_TOKEN}
@@ -158,8 +186,6 @@ services:
       POSTGRES_USER: vpn_admin
       POSTGRES_PASSWORD: \${POSTGRES_PASSWORD:-vpn_password}
       POSTGRES_DB: vpn_db
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     networks:
@@ -167,9 +193,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: redis-server --requirepass \${REDIS_PASSWORD:-vpn_redis_pass}
     restart: always
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     networks:
@@ -182,7 +207,7 @@ services:
     restart: always
     environment:
       - DATABASE_URL=\${DATABASE_URL:-postgresql+asyncpg://vpn_admin:vpn_password@db:5432/vpn_db}
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:\${REDIS_PASSWORD:-vpn_redis_pass}@redis:6379/0
       - BOT_TOKEN=\${BOT_TOKEN}
       - ADMIN_IDS=\${ADMIN_IDS}
       - CRYPTO_PAY_TOKEN=\${CRYPTO_PAY_TOKEN}
@@ -250,7 +275,6 @@ services:
     ports:
       - "443:443"
       - "80:80"
-    network_mode: "host"
 EOF_DOCKER
 
     echo "🧹 Удаление файлов админ-панели (так как выбрана только нода)..."
